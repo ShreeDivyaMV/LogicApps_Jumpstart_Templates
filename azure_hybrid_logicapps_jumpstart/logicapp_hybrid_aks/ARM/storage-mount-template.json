@@ -1,0 +1,63 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "connectedEnvironmentName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the connected environment"
+            }
+        },
+        "storageMountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the storage mount"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Storage account name"
+            }
+        },
+        "storageAccountKey": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Storage account key"
+            }
+        },
+        "fileShareName": {
+            "type": "string",
+            "metadata": {
+                "description": "File share name"
+            }
+        },
+        "logicAppName": {
+            "type": "string",
+            "metadata": {
+                "description": "Logic App name for subdirectory"
+            }
+        }
+    },
+    "variables": {
+        "smbHost": "[concat(parameters('storageAccountName'), '.file.core.windows.net')]",
+        "smbUsername": "[parameters('storageAccountName')]",
+        "smbSharePath": "[concat(parameters('fileShareName'), '\\', parameters('logicAppName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.App/connectedEnvironments/storages",
+            "apiVersion": "2025-02-02-preview",
+            "name": "[concat(parameters('connectedEnvironmentName'), '/', parameters('storageMountName'))]",
+            "properties": {
+                "smb": {
+                    "host": "[variables('smbHost')]",
+                    "shareName": "[variables('smbSharePath')]",
+                    "accessMode": "ReadWrite",
+                    "username": "[variables('smbUsername')]",
+                    "password": "[parameters('storageAccountKey')]"
+                }
+            }
+        }
+    ]
+}

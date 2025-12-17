@@ -1,0 +1,195 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Logic App (Container App) to create"
+            }
+        },
+        "customLocationName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the custom location"
+            }
+        },
+        "connectedEnvironmentName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the connected environment"
+            }
+        },
+        "sqlConnectionString": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SQL connection string for workflow state storage"
+            }
+        },
+        "storageMountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the pre-created storage mount on the connected environment"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for the Logic App"
+            }
+        },
+        "minReplicas": {
+            "type": "int",
+            "defaultValue": 1,
+            "metadata": {
+                "description": "Minimum number of replicas"
+            }
+        },
+        "maxReplicas": {
+            "type": "int",
+            "defaultValue": 3,
+            "metadata": {
+                "description": "Maximum number of replicas"
+            }
+        },
+        "cpu": {
+            "type": "string",
+            "defaultValue": "0.5",
+            "metadata": {
+                "description": "CPU allocation (e.g., 0.5, 1.0)"
+            }
+        },
+        "memory": {
+            "type": "string",
+            "defaultValue": "1Gi",
+            "metadata": {
+                "description": "Memory allocation (e.g., 1Gi, 2Gi)"
+            }
+        }
+    },
+    "variables": {
+        "customLocationResourceId": "[resourceId('Microsoft.ExtendedLocation/customLocations', parameters('customLocationName'))]",
+        "connectedEnvironmentResourceId": "[resourceId('Microsoft.App/connectedEnvironments', parameters('connectedEnvironmentName'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.App/containerapps",
+            "apiVersion": "2025-02-02-preview",
+            "name": "[parameters('logicAppName')]",
+            "dependsOn": [],
+            "location": "[parameters('location')]",
+            "extendedLocation": {
+                "type": "CustomLocation",
+                "name": "[variables('customLocationResourceId')]"
+            },
+            "kind": "workflowapp",
+            "identity": {
+                "type": "None"
+            },
+            "properties": {
+                "environmentId": "[variables('connectedEnvironmentResourceId')]",
+                "configuration": {
+                    "secrets": [
+                        {
+                            "name": "sqlconnection",
+                            "value": "[parameters('sqlConnectionString')]"
+                        }
+                    ],
+                    "activeRevisionsMode": "Single",
+                    "ingress": {
+                        "external": true,
+                        "targetPort": 80,
+                        "exposedPort": 0,
+                        "transport": "Auto",
+                        "traffic": [
+                            {
+                                "weight": 100,
+                                "latestRevision": true
+                            }
+                        ],
+                        "allowInsecure": false,
+                        "stickySessions": {
+                            "affinity": "none"
+                        }
+                    },
+                    "identitySettings": [],
+                    "maxInactiveRevisions": 100
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "image": "mcr.microsoft.com/azurelogicapps/logicapps-base:latest",
+                            "imageType": "ContainerImage",
+                            "name": "logicapps-container",
+                            "env": [
+                                {
+                                    "name": "Workflows.Sql.ConnectionString",
+                                    "secretRef": "sqlconnection"
+                                },
+                                {
+                                    "name": "APP_KIND",
+                                    "value": "workflowapp"
+                                },
+                                {
+                                    "name": "FUNCTIONS_EXTENSION_VERSION",
+                                    "value": "~4"
+                                },
+                                {
+                                    "name": "AzureFunctionsJobHost__extensionBundle__id",
+                                    "value": "Microsoft.Azure.Functions.ExtensionBundle.Workflows"
+                                },
+                                {
+                                    "name": "AzureWebJobsSecretStorageType",
+                                    "value": "files"
+                                },
+                                {
+                                    "name": "WEBSITE_AUTH_ENCRYPTION_KEY",
+                                    "value": "[uniqueString(resourceGroup().id, parameters('logicAppName'))]"
+                                }
+                            ],
+                            "resources": {
+                                "cpu": "[json(parameters('cpu'))]",
+                                "memory": "[parameters('memory')]"
+                            },
+                            "probes": [],
+                            "volumeMounts": [
+                                {
+                                    "volumeName": "[concat(parameters('logicAppName'), 'artifacts')]",
+                                    "mountPath": "/home/site/wwwroot"
+                                }
+                            ]
+                        }
+                    ],
+                    "scale": {
+                        "minReplicas": "[parameters('minReplicas')]",
+                        "maxReplicas": "[parameters('maxReplicas')]",
+                        "cooldownPeriod": 300,
+                        "pollingInterval": 30
+                    },
+                    "volumes": [
+                        {
+                            "name": "[concat(parameters('logicAppName'), 'artifacts')]",
+                            "storageType": "Smb",
+                            "storageName": "[parameters('storageMountName')]"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "logicAppResourceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.App/containerapps', parameters('logicAppName'))]"
+        },
+        "logicAppName": {
+            "type": "string",
+            "value": "[parameters('logicAppName')]"
+        },
+        "logicAppFqdn": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.App/containerapps', parameters('logicAppName'))).configuration.ingress.fqdn]"
+        }
+    }
+}
