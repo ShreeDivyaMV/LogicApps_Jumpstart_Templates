@@ -142,10 +142,6 @@
                                 {
                                     "name": "AzureWebJobsSecretStorageType",
                                     "value": "files"
-                                },
-                                {
-                                    "name": "WEBSITE_AUTH_ENCRYPTION_KEY",
-                                    "value": "[uniqueString(resourceGroup().id, parameters('logicAppName'))]"
                                 }
                             ],
                             "resources": {
@@ -176,7 +172,18 @@
                     ]
                 }
             }
+        },
+        {
+            "apiVersion": "2024-02-02-preview",
+            "name": "[parameters('logicAppName')]",
+            "type": "Microsoft.App/logicApps",
+            "scope": "[concat('Microsoft.App/containerApps/', parameters('logicAppName'))]",
+            "dependsOn": [
+                "[concat('Microsoft.App/containerApps/', parameters('logicAppName'))]"
+            ],
+            "properties": {}
         }
+
     ],
     "outputs": {
         "logicAppResourceId": {
