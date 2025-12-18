@@ -51,7 +51,7 @@ The `Deploy-HybridLogicApp-UserAuth.ps1` script provides a fully automated deplo
 
 2. **Run the deployment script**:
    ```powershell
-   cd ARM
+   cd LogicApps_Jumpstart_Templates\azure_hybrid_logicapps_jumpstart\logicapp_hybrid_aks\ARM
    .\Deploy-HybridLogicApp-UserAuth.ps1 `
        -SubscriptionId "your-subscription-id" `
        -ResourceGroup "logicapp-hybrid-rg" `
@@ -255,6 +255,7 @@ az storage account delete --resource-group <rg> --name <storage-account>
 - [Azure Container Apps on Arc](https://learn.microsoft.com/azure/container-apps/azure-arc-overview)
 - [Logic Apps Standard](https://learn.microsoft.com/azure/logic-apps/single-tenant-overview-compare)
 - [Hybrid Logic Apps Requirements](https://learn.microsoft.com/azure/logic-apps/set-up-standard-workflows-hybrid-deployment-requirements)
+
 
 
 
