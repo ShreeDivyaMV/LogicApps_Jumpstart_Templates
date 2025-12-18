@@ -46,7 +46,7 @@ The `Deploy-HybridLogicApp-UserAuth.ps1` script provides a fully automated deplo
 
 1. **Clone or download this repository**
    ```powershell
-   git clone ttps://github.com/ShreeDivyaMV/azure_arc.git
+   git clone https://github.com/ShreeDivyaMV/LogicApps_Jumpstart_Templates.git
    ```
 
 2. **Run the deployment script**:
@@ -255,6 +255,7 @@ az storage account delete --resource-group <rg> --name <storage-account>
 - [Azure Container Apps on Arc](https://learn.microsoft.com/azure/container-apps/azure-arc-overview)
 - [Logic Apps Standard](https://learn.microsoft.com/azure/logic-apps/single-tenant-overview-compare)
 - [Hybrid Logic Apps Requirements](https://learn.microsoft.com/azure/logic-apps/set-up-standard-workflows-hybrid-deployment-requirements)
+
 
 
 
