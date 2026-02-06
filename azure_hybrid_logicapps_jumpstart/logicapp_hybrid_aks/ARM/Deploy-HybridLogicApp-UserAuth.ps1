@@ -704,16 +704,6 @@ if ($customLocationExists) {
 
 az customlocation create `
         --resource-group $ResourceGroup `
-        --name $ConnectedClusterName `
-        --query id -o tsv
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrEmpty($connectedClusterId)) {
-        Write-Host "ERROR: Failed to get connected cluster ID" -ForegroundColor Red
-        Stop-Transcript
-        exit 1
-    }
-
-    az customlocation create `
-        --resource-group $ResourceGroup `
         --name $CustomLocationName `
         --host-resource-id $connectedClusterId `
         --namespace $Namespace `
@@ -724,6 +714,8 @@ az customlocation create `
         Stop-Transcript
         exit 1
     }
+
+    
 
     Start-Sleep -Seconds 15
 
@@ -898,3 +890,4 @@ Write-Host ""
 Stop-Transcript
 
 Write-Host "Log file saved to current directory" -ForegroundColor Green
+
