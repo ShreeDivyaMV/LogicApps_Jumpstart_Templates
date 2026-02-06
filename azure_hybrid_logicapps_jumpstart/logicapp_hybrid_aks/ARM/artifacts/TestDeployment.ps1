@@ -9,7 +9,10 @@ param(
     [string]$ResourceGroup = "",
     
     [Parameter(Mandatory=$false)]
-    [string]$SubscriptionId = ""
+    [string]$SubscriptionId = "",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$Namespace = ""  # Kubernetes namespace for Logic Apps pods (auto-detected if not provided)
 )
 
 Write-Host "=====================================================================" -ForegroundColor Cyan
@@ -119,7 +122,7 @@ if ($TestMode -eq "PreDeployment" -or $TestMode -eq "FullValidation") {
     
     # Test 6: Validate ARM template syntax
     Write-Host "[6/12] Testing ARM Template Syntax..." -ForegroundColor Cyan
-    $templatePath = Join-Path $PSScriptRoot "..\azuredeploy.json"
+    $templatePath = Join-Path $PSScriptRoot "..\logicapp-template.json"
     if (Test-Path $templatePath) {
         try {
             $template = Get-Content $templatePath -Raw | ConvertFrom-Json
@@ -135,53 +138,50 @@ if ($TestMode -eq "PreDeployment" -or $TestMode -eq "FullValidation") {
         Add-TestResult "ARM Template Syntax" $false "Template file not found"
     }
     
-    # Test 7: Validate Logic App template syntax
-    Write-Host "[7/12] Testing Logic App Template Syntax..." -ForegroundColor Cyan
-    $logicAppTemplatePath = Join-Path $PSScriptRoot "..\logicapp.json"
-    if (Test-Path $logicAppTemplatePath) {
+    # Test 7: Validate Storage Mount template syntax
+    Write-Host "[7/12] Testing Storage Mount Template Syntax..." -ForegroundColor Cyan
+    $storageMountTemplatePath = Join-Path $PSScriptRoot "..\storage-mount-template.json"
+    if (Test-Path $storageMountTemplatePath) {
         try {
-            $template = Get-Content $logicAppTemplatePath -Raw | ConvertFrom-Json
+            $template = Get-Content $storageMountTemplatePath -Raw | ConvertFrom-Json
             if ($template.'$schema' -and $template.resources) {
-                Add-TestResult "Logic App Template Syntax" $true "Template is valid JSON"
+                Add-TestResult "Storage Mount Template Syntax" $true "Template is valid JSON"
             } else {
-                Add-TestResult "Logic App Template Syntax" $false "Template structure invalid"
+                Add-TestResult "Storage Mount Template Syntax" $false "Template structure invalid"
             }
         } catch {
-            Add-TestResult "Logic App Template Syntax" $false "Error: $_"
+            Add-TestResult "Storage Mount Template Syntax" $false "Error: $_"
         }
     } else {
-        Add-TestResult "Logic App Template Syntax" $false "Template file not found"
+        Add-TestResult "Storage Mount Template Syntax" $false "Template file not found"
     }
     
-    # Test 8: Validate parameters file
-    Write-Host "[8/12] Testing Parameters File..." -ForegroundColor Cyan
-    $parametersPath = Join-Path $PSScriptRoot "..\azuredeploy.parameters.json"
-    if (Test-Path $parametersPath) {
+    # Test 8: Validate deployment script configuration
+    Write-Host "[8/12] Testing Deployment Script Configuration..." -ForegroundColor Cyan
+    $deployScriptPath = Join-Path $PSScriptRoot "DeployHybridLogicApps.ps1"
+    if (Test-Path $deployScriptPath) {
         try {
-            $params = Get-Content $parametersPath -Raw | ConvertFrom-Json
-            if ($params.parameters) {
-                $requiredParams = @('spnClientId', 'spnClientSecret', 'spnTenantId', 'sqlAdminPassword')
-                $missingParams = @()
-                
-                foreach ($param in $requiredParams) {
-                    if (-not $params.parameters.$param -or $params.parameters.$param.value -like "*<your-*") {
-                        $missingParams += $param
-                    }
+            $scriptContent = Get-Content $deployScriptPath -Raw
+            # Check for required configuration variables in the deployment script
+            $requiredVars = @('resourceGroup', 'azureLocation', 'aksClusterName')
+            $missingVars = @()
+            
+            foreach ($var in $requiredVars) {
+                if ($scriptContent -notmatch "\`$$var\s*=") {
+                    $missingVars += $var
                 }
-                
-                if ($missingParams.Count -eq 0) {
-                    Add-TestResult "Parameters File" $true "All required parameters configured"
-                } else {
-                    Add-TestResult "Parameters File" $false "Missing/placeholder parameters: $($missingParams -join ', ')"
-                }
+            }
+            
+            if ($missingVars.Count -eq 0) {
+                Add-TestResult "Deployment Script Configuration" $true "Script contains expected configuration variables"
             } else {
-                Add-TestResult "Parameters File" $false "Invalid parameters structure"
+                Add-TestResult "Deployment Script Configuration" $false "Potentially missing variables: $($missingVars -join ', ')"
             }
         } catch {
-            Add-TestResult "Parameters File" $false "Error: $_"
+            Add-TestResult "Deployment Script Configuration" $false "Error: $_"
         }
     } else {
-        Add-TestResult "Parameters File" $false "Parameters file not found"
+        Add-TestResult "Deployment Script Configuration" $false "Deployment script not found"
     }
     
     # Test 9: Check if logged into Azure
@@ -256,7 +256,7 @@ if ($TestMode -eq "PostDeployment" -or $TestMode -eq "FullValidation") {
     
     if (-not $ResourceGroup) {
         Write-Host "Resource Group name required for post-deployment tests!" -ForegroundColor Red
-        Write-Host "Usage: .\TestDeployment.ps1 -TestMode PostDeployment -ResourceGroup <rg-name>" -ForegroundColor Yellow
+        Write-Host 'Usage: .\TestDeployment.ps1 -TestMode PostDeployment -ResourceGroup <rg-name>' -ForegroundColor Yellow
         return
     }
     
@@ -384,12 +384,27 @@ if ($TestMode -eq "PostDeployment" -or $TestMode -eq "FullValidation") {
     # Test 9: Check Kubernetes pods
     Write-Host "[9/10] Testing Kubernetes Pods..." -ForegroundColor Cyan
     try {
-        $pods = kubectl get pods -n logicapps-aca-ns --output json 2>$null | ConvertFrom-Json
+        # Determine namespace: use parameter, or auto-discover
+        $targetNamespace = $Namespace
+        if (-not $targetNamespace) {
+            # Auto-discover namespace containing 'logicapp'
+            $namespaces = kubectl get namespaces --output json 2>$null | ConvertFrom-Json
+            $logicAppNs = $namespaces.items | Where-Object { $_.metadata.name -match 'logicapp' } | Select-Object -First 1
+            if ($logicAppNs) {
+                $targetNamespace = $logicAppNs.metadata.name
+                Write-Host "  Auto-detected namespace: $targetNamespace" -ForegroundColor Gray
+            } else {
+                Add-TestResult "Kubernetes Pods" $false "No Logic Apps namespace found. Use -Namespace parameter to specify."
+                return
+            }
+        }
+        
+        $pods = kubectl get pods -n $targetNamespace --output json 2>$null | ConvertFrom-Json
         if ($pods.items.Count -gt 0) {
             $runningPods = ($pods.items | Where-Object { $_.status.phase -eq 'Running' }).Count
-            Add-TestResult "Kubernetes Pods" $true "Running pods: $runningPods / $($pods.items.Count)"
+            Add-TestResult "Kubernetes Pods" $true "Running pods in '$targetNamespace': $runningPods / $($pods.items.Count)"
         } else {
-            Add-TestResult "Kubernetes Pods" $false "No pods found in logicapps-aca-ns namespace"
+            Add-TestResult "Kubernetes Pods" $false "No pods found in $targetNamespace namespace"
         }
     } catch {
         Add-TestResult "Kubernetes Pods" $false "Error: $_"
@@ -468,3 +483,4 @@ if ($TestMode -eq "PostDeployment" -or $TestMode -eq "FullValidation") {
         Write-Host "⚠ Some tests failed. Please review the deployment." -ForegroundColor Yellow
     }
 }
+
