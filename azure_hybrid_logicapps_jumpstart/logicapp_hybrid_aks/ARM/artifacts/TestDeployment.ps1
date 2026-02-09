@@ -42,10 +42,10 @@ function Add-TestResult {
     $script:testResults += $result
     
     if ($Passed) {
-        Write-Host "✓ PASS: $TestName" -ForegroundColor Green
+        Write-Host "[PASS] $TestName" -ForegroundColor Green
         if ($Message) { Write-Host "  $Message" -ForegroundColor Gray }
     } else {
-        Write-Host "✗ FAIL: $TestName" -ForegroundColor Red
+        Write-Host "[FAIL] $TestName" -ForegroundColor Red
         if ($Message) { Write-Host "  $Message" -ForegroundColor Yellow }
     }
 }
@@ -447,7 +447,7 @@ Write-Host ""
 if ($failed -gt 0) {
     Write-Host "Failed Tests:" -ForegroundColor Red
     $testResults | Where-Object { $_.Passed -eq $false } | ForEach-Object {
-        Write-Host "  ✗ $($_.Test)" -ForegroundColor Red
+        Write-Host "  [X] $($_.Test)" -ForegroundColor Red
         Write-Host "    $($_.Message)" -ForegroundColor Yellow
     }
     Write-Host ""
@@ -470,17 +470,17 @@ Write-Host ""
 # Recommendations
 if ($TestMode -eq "PreDeployment" -or $TestMode -eq "FullValidation") {
     if ($failed -eq 0) {
-        Write-Host "✓ All pre-deployment tests passed! Ready to deploy." -ForegroundColor Green
+        Write-Host "All pre-deployment tests passed! Ready to deploy." -ForegroundColor Green
     } else {
-        Write-Host "⚠ Some tests failed. Please fix the issues before deployment." -ForegroundColor Yellow
+        Write-Host "Some tests failed. Please fix the issues before deployment." -ForegroundColor Yellow
     }
 }
 
 if ($TestMode -eq "PostDeployment" -or $TestMode -eq "FullValidation") {
     if ($failed -eq 0) {
-        Write-Host "✓ All post-deployment tests passed! Deployment successful." -ForegroundColor Green
+        Write-Host "All post-deployment tests passed! Deployment successful." -ForegroundColor Green
     } else {
-        Write-Host "⚠ Some tests failed. Please review the deployment." -ForegroundColor Yellow
+        Write-Host "Some tests failed. Please review the deployment." -ForegroundColor Yellow
     }
 }
 
