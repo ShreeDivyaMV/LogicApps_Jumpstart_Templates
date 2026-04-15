@@ -125,9 +125,8 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$SqlServerName = "logicappsql" ,
 
-    [Parameter(Mandatory=$false, HelpMessage="Storage account name")]
-    [ValidateNotNullOrEmpty()]
-    [string]$StorageAccountName = "logicappsa",
+    [Parameter(Mandatory=$false, HelpMessage="Storage account name (must be globally unique, 3-24 lowercase alphanumeric). Leave empty to auto-generate.")]
+    [string]$StorageAccountName = "",
 
     [Parameter(Mandatory=$false, HelpMessage="Log Analytics workspace name")]
     [ValidateNotNullOrEmpty()]
@@ -161,6 +160,15 @@ $SqlServerName = $SqlServerName.Trim()
 $StorageAccountName = $StorageAccountName.Trim()
 $WorkspaceName = $WorkspaceName.Trim()
 $LogicAppName = $LogicAppName.Trim()
+
+# Auto-generate a unique storage account name if not provided.
+# Storage account names must be globally unique, 3-24 lowercase alphanumeric chars.
+# We use the last 8 chars of the subscription ID as a deterministic suffix.
+if ([string]::IsNullOrEmpty($StorageAccountName)) {
+    $suffix = $SubscriptionId.Replace('-', '').Substring([Math]::Max(0, $SubscriptionId.Replace('-', '').Length - 8))
+    $StorageAccountName = "logicappsa$suffix"
+    Write-Host "  Auto-generated storage account name: $StorageAccountName" -ForegroundColor Cyan
+}
 
 # Generate storage mount name based on Logic App name
 $StorageMountName = "$LogicAppName-smb"
