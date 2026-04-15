@@ -170,6 +170,33 @@ $StorageMountName = "$LogicAppName-smb"
 # ============================================================================
 
 $ErrorActionPreference = "Continue"
+
+# Validate that the chosen region supports the microsoft.app.environment Arc extension.
+# This extension is required for Hybrid Logic Apps and is only available in specific regions.
+# Source: https://learn.microsoft.com/azure/app-service/overview-arc-integration
+$supportedExtensionRegions = @(
+    "eastus", "eastus2", "westus", "westus2", "westus3",
+    "northcentralus", "southcentralus", "westcentralus",
+    "westeurope", "northeurope", "uksouth", "ukwest",
+    "australiaeast", "australiasoutheast",
+    "southeastasia", "eastasia",
+    "japaneast", "japanwest",
+    "brazilsouth",
+    "canadacentral", "canadaeast",
+    "centralindia", "southindia",
+    "koreacentral",
+    "francecentral",
+    "swedencentral",
+    "switzerlandnorth"
+)
+
+if ($Location -notin $supportedExtensionRegions) {
+    Write-Error "Region '$Location' does not support the microsoft.app.environment Arc extension required for Hybrid Logic Apps."
+    Write-Error "Supported regions: $($supportedExtensionRegions -join ', ')"
+    Write-Error "See: https://learn.microsoft.com/azure/app-service/overview-arc-integration"
+    exit 1
+}
+
 Start-Transcript -Path ".\HybridLogicAppSetup-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
 Write-Host "=====================================================================" -ForegroundColor Cyan
