@@ -47,7 +47,7 @@
         -ResourceGroup "my-logicapp-rg" `
         -Location "westeurope" `
         -SqlAdminPassword (ConvertTo-SecureString "MyP@ssw0rd123!" -AsPlainText -Force) `
-        -KubernetesVersion "1.32.9" `
+        -KubernetesVersion "1.33.8" `
         -SqlAdminUsername "sqladmin" `
         -SqlDatabaseName "LogicAppDB" `
         -FileShareName "logicapp-artifacts" `
@@ -83,7 +83,7 @@ param(
 
     [Parameter(Mandatory=$false, HelpMessage="Kubernetes version for AKS")]
     [ValidateNotNullOrEmpty()]
-    [string]$KubernetesVersion = "1.32.9",
+    [string]$KubernetesVersion = "1.33.8",
 
     [Parameter(Mandatory=$false, HelpMessage="SQL Server admin username")]
     [ValidateNotNullOrEmpty()]
@@ -371,7 +371,8 @@ if ($aksExists) {
         --name $AksClusterName `
         --kubernetes-version $KubernetesVersion `
         --node-count 3 `
-        --node-vm-size Standard_D4s_v3 `
+        --node-vm-size Standard_DS2_v2 `
+        --tier standard `
     --enable-managed-identity `
     --enable-cluster-autoscaler `
     --min-count 1 `
